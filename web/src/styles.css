@@ -25,3 +25,8 @@ button:disabled { opacity: .45; cursor: default; }
 @keyframes pop { to { transform: scale(1); } }
 .placed { transition: transform 450ms cubic-bezier(.5, 0, .3, 1), opacity 350ms; }
 .erasing { opacity: 0; filter: blur(1.5px); transition: opacity 350ms, filter 350ms; }
+.board { position: relative; }
+.caption { position: absolute; left: 50%; bottom: 36px; transform: translateX(-50%); max-width: min(820px, 90%);
+  padding: 10px 18px; border-radius: 10px; background: rgba(30, 42, 68, .88); color: #c9cfdc; font-size: 17px; line-height: 1.45; text-align: center; }
+.caption .spoken { color: #fff; }
+.beat { font-size: 13px; color: #6b6556; font-variant-numeric: tabular-nums; }
