@@ -6,12 +6,15 @@ import { LessonPlayer, type Playhead } from "./lesson/player";
 import { linkedListLesson } from "./lesson/linkedLists";
 import { Caption } from "./lesson/Caption";
 import { useSession } from "./useSession";
+import { setEngineListener, unlockAudio, type Engine } from "./voice";
 
 export default function App() {
   const [scene, setScene] = useState<Scene>(emptyScene);
   const [head, setHead] = useState<Playhead>({ status: "idle", beat: 0, char: 0, text: "" });
   const player = useRef<LessonPlayer | null>(null);
   const { status } = useSession(() => {});
+  const [engine, setEngine] = useState<Engine | null>(null);
+  useEffect(() => void setEngineListener(setEngine), []);
 
   useEffect(() => {
     const p = new LessonPlayer(
@@ -25,7 +28,10 @@ export default function App() {
   }, []);
 
   const p = player.current;
-  const toggle = () => (head.status === "playing" ? p?.pause() : p?.play());
+  const toggle = () => {
+    unlockAudio();
+    head.status === "playing" ? p?.pause() : p?.play();
+  };
   const label = { idle: "Play lesson", playing: "Pause", paused: "Resume", done: "Replay" }[head.status];
 
   useEffect(() => {
@@ -42,6 +48,7 @@ export default function App() {
           <button onClick={toggle}>{label}</button>
           <button onClick={() => p?.restart()} disabled={head.status === "idle"}>Restart</button>
           <span className="beat">beat {head.beat + 1}/{linkedListLesson.length}</span>
+          {engine && <span className={`status ${engine === "elevenlabs" ? "open" : ""}`}>{engine}</span>}
           <span className={`status ${status}`}>{status}</span>
         </div>
       </header>

@@ -1,6 +1,6 @@
 import { drawDuration } from "../scene/reducer";
 import type { Op } from "../scene/types";
-import { speak, type Speech } from "../voice/browserTts";
+import { prepare, speak, type Speech } from "../voice";
 import { compile, type Beat, type CompiledBeat } from "./types";
 
 export type Status = "idle" | "playing" | "paused" | "done";
@@ -83,13 +83,17 @@ export class LessonPlayer {
     this.fireUpTo(c);
     this.emit();
 
-    const rest = beat.text.slice(c);
-    if (!rest.trim()) return this.afterBeat(gen);
+    // prefetch the next beat's audio while this one plays
+    const next = this.beats[b + 1];
+    if (next) prepare(next.text).catch(() => {});
+
+    if (!beat.text.slice(c).trim()) return this.afterBeat(gen);
     this.speech = speak(
-      rest,
+      beat.text,
+      c,
       (i) => {
         if (gen !== this.gen) return;
-        this.char = c + i;
+        this.char = i;
         this.fireUpTo(this.char);
         this.emit();
       },

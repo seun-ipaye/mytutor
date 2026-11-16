@@ -2,7 +2,10 @@
 import json
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel
+
+from tts import TTSError, synthesize
 from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
@@ -14,6 +17,20 @@ api.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 @api.get("/health")
 def health():
     return {"ok": True}
+
+
+class TTSRequest(BaseModel):
+    text: str
+
+
+@api.post("/tts")
+async def tts(req: TTSRequest):
+    """Speech for one beat, with a start time for every character (drives op timing)."""
+    try:
+        return await synthesize(req.text)
+    except TTSError as e:
+        print(f"[tts] {e}", flush=True)
+        raise HTTPException(503, str(e))
 
 
 @api.websocket("/ws")
