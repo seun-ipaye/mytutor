@@ -23,3 +23,5 @@ button:disabled { opacity: .45; cursor: default; }
 @keyframes write { to { clip-path: inset(0 0 0 0); } }
 .pop { transform-box: fill-box; transform-origin: center; transform: scale(0); animation: pop .15s ease-out forwards; }
 @keyframes pop { to { transform: scale(1); } }
+.placed { transition: transform 450ms cubic-bezier(.5, 0, .3, 1), opacity 350ms; }
+.erasing { opacity: 0; filter: blur(1.5px); transition: opacity 350ms, filter 350ms; }
