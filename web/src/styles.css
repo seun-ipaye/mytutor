@@ -1,14 +1,25 @@
+:root {
+  --paper: #f6f2e8;
+  --grid: #e6dfcf;
+  --ink: #1e2a44;
+  --marker: rgba(232, 160, 40, 0.75);
+}
 * { box-sizing: border-box; margin: 0; }
 html, body, #root { height: 100%; }
-body { font-family: system-ui, sans-serif; background: #f4f1ea; color: #1f1d1a; }
+body { font-family: system-ui, sans-serif; background: #ebe5d8; color: var(--ink); }
 .app { display: flex; flex-direction: column; height: 100%; }
-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid #e2ddd2; }
-.logo { font-weight: 600; letter-spacing: .02em; }
-.status { font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #e2ddd2; }
+header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; }
+.logo { font-family: "Caveat", cursive; font-size: 28px; font-weight: 700; }
+.controls { display: flex; align-items: center; gap: 10px; }
+.status { font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #ddd5c4; }
 .status.open { background: #d6ead2; color: #24502a; }
 .status.closed { background: #f3d6d2; color: #7a2a20; }
-.board { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; }
-.placeholder { color: #8a8478; }
-button { padding: 8px 16px; border: 1px solid #1f1d1a; background: transparent; border-radius: 8px; cursor: pointer; }
-button:disabled { opacity: .4; cursor: default; }
-.log { max-width: 640px; width: 100%; font-size: 12px; color: #5a554c; white-space: pre-wrap; }
+button { padding: 8px 16px; border: 1.5px solid var(--ink); background: transparent; color: var(--ink); border-radius: 8px; cursor: pointer; font-size: 14px; }
+button:disabled { opacity: .45; cursor: default; }
+.board { flex: 1; display: flex; padding: 0 20px 20px; min-height: 0; }
+.paper { width: 100%; height: 100%; background: var(--paper); border-radius: 6px; box-shadow: 0 1px 0 #d8d0bf, 0 8px 24px rgba(60, 50, 30, .08); }
+.hand { font-family: "Caveat", cursive; font-weight: 500; fill: var(--ink); }
+.write-in { clip-path: inset(0 100% 0 0); animation-name: write; animation-timing-function: linear; animation-fill-mode: forwards; }
+@keyframes write { to { clip-path: inset(0 0 0 0); } }
+.pop { transform-box: fill-box; transform-origin: center; transform: scale(0); animation: pop .15s ease-out forwards; }
+@keyframes pop { to { transform: scale(1); } }
