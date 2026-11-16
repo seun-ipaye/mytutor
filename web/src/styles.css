@@ -1,0 +1,14 @@
+* { box-sizing: border-box; margin: 0; }
+html, body, #root { height: 100%; }
+body { font-family: system-ui, sans-serif; background: #f4f1ea; color: #1f1d1a; }
+.app { display: flex; flex-direction: column; height: 100%; }
+header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid #e2ddd2; }
+.logo { font-weight: 600; letter-spacing: .02em; }
+.status { font-size: 13px; padding: 4px 10px; border-radius: 999px; background: #e2ddd2; }
+.status.open { background: #d6ead2; color: #24502a; }
+.status.closed { background: #f3d6d2; color: #7a2a20; }
+.board { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; }
+.placeholder { color: #8a8478; }
+button { padding: 8px 16px; border: 1px solid #1f1d1a; background: transparent; border-radius: 8px; cursor: pointer; }
+button:disabled { opacity: .4; cursor: default; }
+.log { max-width: 640px; width: 100%; font-size: 12px; color: #5a554c; white-space: pre-wrap; }
