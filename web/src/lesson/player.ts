@@ -30,6 +30,7 @@ export class LessonPlayer {
   private busyUntil = 0;
   private gen = 0; // bumps on pause/restart so stale speech callbacks die
   private epoch = 0; // bumps only on restart/load — queued drawings survive a pause
+  private held: CompiledBeat[] | null = null; // the rest of the lesson, parked during an interruption
 
   constructor(
     private onOp: (op: Op) => void,
@@ -48,7 +49,11 @@ export class LessonPlayer {
   }
 
   push(beat: Beat) {
-    this.beats.push(compile(beat));
+    this.pushCompiled(compile(beat));
+  }
+
+  private pushCompiled(beat: CompiledBeat) {
+    this.beats.push(beat);
     const i = this.beats.length - 1;
     if (i === this.beat + 1) prepare(this.beats[i].text).catch(() => {});
     if (this.status === "waiting") {
@@ -59,6 +64,7 @@ export class LessonPlayer {
 
   /** The stream has ended — no more beats coming. */
   finish() {
+    if (this.held) this.resume(); // an answer ended without a decision: carry on with the lesson
     this.streamDone = true;
     if (this.status === "waiting") {
       this.status = this.beats.length ? "done" : "idle";
@@ -68,6 +74,67 @@ export class LessonPlayer {
 
   get state(): Status {
     return this.status;
+  }
+
+  get hasLesson() {
+    return this.beats.length > 0;
+  }
+
+  /** What's been said so far and what was coming next — context for the model when interrupted. */
+  transcript(): { said: string; upcoming: string } {
+    const cur = this.beats[this.beat];
+    const said = [...this.beats.slice(0, this.beat).map((b) => b.text), cur ? cur.text.slice(0, this.char) : ""].join(" ").trim();
+    const upcoming = [cur ? cur.text.slice(this.char) : "", ...(this.held ?? this.beats.slice(this.beat + 1)).map((b) => b.text)].join(" ").trim();
+    return { said, upcoming };
+  }
+
+  /**
+   * Stop mid-sentence for a question. The current beat is cut at the start of the current word: the spoken part stays,
+   * the unspoken rest (+ its unfired drawings) and all later beats are parked. Answer beats then arrive via push();
+   * resume() brings the parked lesson back (with a spoken bridge), dropHeld() discards it for a new direction.
+   */
+  interrupt(filler?: string) {
+    if (!this.beats.length) return;
+    this.gen++; // kill the current speech, but let already-queued drawings finish
+    this.speech?.stop();
+    const b = Math.min(this.beat, this.beats.length - 1), cur = this.beats[b];
+    let rest: CompiledBeat | null = null;
+    const char = this.status === "done" ? cur.text.length : Math.min(this.char, cur.text.length);
+    const cut = wordStart(cur.text, char);
+    const firedCues = cur.cues.filter((_, i) => this.fired.has(i));
+    const leftCues = cur.cues.filter((_, i) => !this.fired.has(i)).map((c) => ({ at: Math.max(0, c.at - cut), op: c.op }));
+    if (cur.text.slice(cut).trim() || leftCues.length) rest = { text: cur.text.slice(cut), cues: leftCues };
+    this.beats[b] = { text: cur.text.slice(0, cut), cues: firedCues.map((c) => ({ ...c, at: Math.min(c.at, cut) })) };
+    this.fired = new Set(this.beats[b].cues.map((_, i) => i));
+
+    // if we were already parked from an earlier interruption, keep that lesson parked behind this one
+    const parkedLater = this.held ?? this.beats.slice(b + 1);
+    this.held = [...(rest ? [rest] : []), ...parkedLater];
+    this.beats = this.beats.slice(0, b + 1);
+    this.streamDone = false;
+    this.beat = b;
+    this.char = this.beats[b].text.length;
+    this.status = "waiting";
+    if (filler) this.pushCompiled({ text: filler, cues: [] }); // instant acknowledgement while the model thinks
+    else this.emit();
+  }
+
+  /** Bring the parked lesson back after an answer, led in by a short spoken bridge. */
+  resume(bridge?: string) {
+    if (!this.held) return;
+    const held = this.held;
+    this.held = null;
+    if (bridge?.trim()) {
+      const b = bridge.trim() + " ";
+      if (held[0]) held[0] = { text: b + held[0].text.trimStart(), cues: held[0].cues.map((c) => ({ ...c, at: c.at + b.length })) };
+      else held.push({ text: b, cues: [] });
+    }
+    held.forEach((b) => this.pushCompiled(b));
+  }
+
+  /** Throw away the parked lesson — a new direction is streaming in. */
+  dropHeld() {
+    this.held = null;
   }
 
   play() {
@@ -103,6 +170,7 @@ export class LessonPlayer {
   }
 
   private reset() {
+    this.held = null;
     Object.assign(this, { beat: 0, char: 0, busyUntil: 0, status: "idle" as Status });
     this.fired.clear();
     this.onReset();

@@ -86,26 +86,101 @@ def skeleton_for(question: str) -> str:
 RAW_LOG = Path(__file__).parent / ".cache" / "last_lesson.txt"
 
 
-async def lesson(question: str) -> AsyncIterator[list]:
-    """Yields cleaned beats as soon as each complete JSON object arrives (any formatting)."""
-    skeleton = skeleton_for(question)
-    user = f"Student asks: {question}"
-    if skeleton:
-        user += f"\n\nTeaching notes for this topic (follow the beats, pre-empt one misconception):\n{skeleton}"
-    messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}]
-
+async def _objects(messages: list[dict], log_name: str = "last_lesson.txt") -> AsyncIterator[dict]:
+    """Streams the model and yields each complete JSON object as soon as it closes."""
     scanner = ObjectScanner()
     raw = ""
     try:
         async for delta in stream_chat(messages):
             raw += delta
             for obj in scanner.feed(delta):
-                for beat in beats_in(obj):
-                    yield beat
+                yield obj
     finally:
-        RAW_LOG.parent.mkdir(parents=True, exist_ok=True)
-        RAW_LOG.write_text(raw)
-        print(f"[tutor] model sent {len(raw)} chars (raw saved to .cache/last_lesson.txt)", flush=True)
+        path = RAW_LOG.parent / log_name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(raw)
+        print(f"[tutor] model sent {len(raw)} chars (raw saved to .cache/{log_name})", flush=True)
+
+
+async def lesson(question: str) -> AsyncIterator[list]:
+    """A fresh lesson, beat by beat."""
+    skeleton = skeleton_for(question)
+    user = f"Student asks: {question}"
+    if skeleton:
+        user += f"\n\nTeaching notes for this topic (follow the beats, pre-empt one misconception):\n{skeleton}"
+    messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}]
+    async for obj in _objects(messages):
+        for beat in beats_in(obj):
+            yield beat
+
+
+INTERRUPT = """You are in the middle of teaching: "{topic}".
+
+What you've said so far (most recent last):
+{said}
+
+What you were about to say next:
+{upcoming}
+
+The board right now:
+{board}
+
+The student just interrupted you and said: "{question}"
+
+Respond like a real tutor who just got interrupted mid-sentence:
+- The student already heard a quick "mm, good question" — don't repeat it. Go straight into the answer, conversationally.
+- Answer in 1 to 4 beats, same beat format as always. USE THE EXISTING BOARD: refer to existing ids, move existing pointers,
+  highlight or label existing elements, add elements if it helps show the answer. New ids must start with "q" (e.g. "q_h1").
+- If you add temporary marks (highlights, labels) just for this answer, erase them in your last beat unless they help later.
+- If the student says they're confused, re-explain the last idea a different way rather than repeating it.
+- Then, on its own final line, output exactly one decision object:
+  {{"then":"resume","bridge":"<5-10 words leading back, e.g. 'Okay — back to inserting the six.'>"}}
+    if the lesson plan above still makes sense after your answer, or
+  {{"then":"replan"}}
+    if the question changes direction (new topic, "skip ahead", "show me something else", or your edits made the plan stale).
+"""
+
+CONTINUE = """You are teaching: "{topic}". You were interrupted and switched direction.
+
+What you've said so far (most recent last):
+{said}
+
+Your answer to the interruption ("{question}") just did this:
+{aside}
+
+The board before that answer:
+{board}
+
+Continue the lesson from here in the direction the student wants, picking up naturally — no recap of what was said,
+no greeting. Use and extend the existing board (existing ids stay valid; new ids start with "r"). 3 to 8 beats.
+"""
+
+
+def _tail(text: str, n: int = 1800) -> str:
+    return text if len(text) <= n else "..." + text[-n:]
+
+
+async def aside(question: str, topic: str, said: str, upcoming: str, board: str) -> AsyncIterator[tuple[str, object]]:
+    """Answer an interruption. Yields ("beat", beat) ... then ("then", {"then": "resume"|"replan", "bridge"?: str})."""
+    user = INTERRUPT.format(topic=topic or "(unknown)", said=_tail(said) or "(nothing yet)",
+                            upcoming=_tail(upcoming, 1200) or "(nothing — the lesson had finished)",
+                            board=board or "(empty)", question=question)
+    messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}]
+    async for obj in _objects(messages, "last_aside.txt"):
+        if isinstance(obj, dict) and obj.get("then") in ("resume", "replan"):
+            yield "then", {"then": obj["then"], "bridge": str(obj.get("bridge") or "")[:120]}
+            continue
+        for beat in beats_in(obj):
+            yield "beat", beat
+
+
+async def continuation(question: str, topic: str, said: str, board: str, aside_beats: list) -> AsyncIterator[list]:
+    user = CONTINUE.format(topic=topic or question, said=_tail(said) or "(nothing yet)", question=question,
+                           aside=json.dumps(aside_beats)[:2500], board=board or "(empty)")
+    messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}]
+    async for obj in _objects(messages, "last_continue.txt"):
+        for beat in beats_in(obj):
+            yield beat
 
 
 class ObjectScanner:
