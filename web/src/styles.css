@@ -3,6 +3,7 @@
   --grid: #e6dfcf;
   --ink: #1e2a44;
   --marker: rgba(232, 160, 40, 0.75);
+  --pointer: #b8432b;
 }
 * { box-sizing: border-box; margin: 0; }
 html, body, #root { height: 100%; }
@@ -41,3 +42,4 @@ header { gap: 16px; }
 .heard { position: absolute; top: 18px; right: 38px; max-width: 420px; padding: 10px 14px; border-radius: 12px 12px 2px 12px;
   background: #fff; border: 1.5px solid var(--ink); font-size: 16px; line-height: 1.4; }
 .heard span { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #8a8478; margin-bottom: 2px; }
+.hand.muted { fill: #8a8478; }

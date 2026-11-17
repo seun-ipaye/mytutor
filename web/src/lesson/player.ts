@@ -1,5 +1,5 @@
 import { drawDuration } from "../scene/reducer";
-import type { Op } from "../scene/types";
+import type { AnyOp as Op } from "../scene/types";
 import { prepare, speak, type Speech } from "../voice";
 import { compile, type Beat, type CompiledBeat } from "./types";
 

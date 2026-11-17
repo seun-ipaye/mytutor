@@ -1,36 +1,47 @@
-import { NODE, NULL_BOX, type Point, type Scene } from "./types";
+import { elemBox, MAX_ROW_W, nullBox, structSize } from "./kits";
+import type { Box, Kind, Scene } from "./types";
 
-export const BOARD = { w: 1200, h: 700 };
 const MARGIN_X = 90;
-const FIRST_LIST_Y = 230;
-const LIST_SPACING = 230;
-const GAP = 110;
+const STRUCT_Y = 150;
 
 export interface Layout {
-  pos: Map<string, Point>; // nodes, "<list>:null", text items
-  nullOf: Map<string, string>; // list id -> its null id
+  boxes: Map<string, Box>; // every element, plus "<struct>:null" for lists
+  kindOf: Map<string, Kind>; // element id -> its structure's kind
+  structs: Map<string, Box>; // structure footprints
+  text: Map<string, { x: number; y: number }>;
+  size: { w: number; h: number }; // board grows to fit
 }
 
-/** Pure, deterministic positions for everything. Same scene -> same picture. */
+/** Pure, deterministic. Structures flow left-to-right in rows; title on top, notes below everything. */
 export function layout(scene: Scene): Layout {
-  const pos = new Map<string, Point>();
-  const nullOf = new Map<string, string>();
+  const boxes = new Map<string, Box>(), kindOf = new Map<string, Kind>(), structs = new Map<string, Box>();
+  let x = MARGIN_X, y = STRUCT_Y, rowH = 0, right = 0;
 
-  scene.lists.forEach((list, li) => {
-    const y = FIRST_LIST_Y + li * LIST_SPACING;
-    const n = list.nodes.length;
-    const available = BOARD.w - 2 * MARGIN_X - NULL_BOX.w - 30;
-    const slot = n ? Math.min(NODE.w + GAP, available / n) : 0;
-    list.nodes.forEach((id, i) => pos.set(id, { x: MARGIN_X + i * slot, y }));
-    const nullId = `${list.id}:null`;
-    nullOf.set(list.id, nullId);
-    pos.set(nullId, { x: MARGIN_X + n * slot, y: y + (NODE.h - NULL_BOX.h) / 2 });
-  });
+  for (const s of scene.structs) {
+    const n = s.elems.length, sz = structSize(s.kind, n);
+    if (x > MARGIN_X && x - MARGIN_X + sz.w > MAX_ROW_W) {
+      x = MARGIN_X;
+      y += rowH + 30;
+      rowH = 0;
+    }
+    const o = { x, y };
+    s.elems.forEach((id, i) => {
+      boxes.set(id, elemBox(s.kind, i, n, o));
+      kindOf.set(id, s.kind);
+    });
+    if (s.kind === "list") boxes.set(`${s.id}:null`, nullBox(n, o));
+    structs.set(s.id, { ...o, ...sz });
+    x += sz.w + 60;
+    rowH = Math.max(rowH, sz.h);
+    right = Math.max(right, o.x + sz.w);
+  }
 
-  let notes = 0;
+  const text = new Map<string, { x: number; y: number }>();
+  let noteY = Math.max(520, y + rowH + 50);
   for (const it of scene.items) {
     if (it.kind !== "text") continue;
-    pos.set(it.id, it.at === "title" ? { x: MARGIN_X, y: 100 } : { x: MARGIN_X, y: 540 + notes++ * 50 });
+    if (it.at === "title") text.set(it.id, { x: MARGIN_X, y: 95 });
+    else text.set(it.id, { x: MARGIN_X, y: (noteY += 50) - 50 });
   }
-  return { pos, nullOf };
+  return { boxes, kindOf, structs, text, size: { w: Math.max(1200, right + MARGIN_X), h: Math.max(700, noteY + 40) } };
 }

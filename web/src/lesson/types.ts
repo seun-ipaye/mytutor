@@ -1,4 +1,4 @@
-import type { Op } from "../scene/types";
+import type { AnyOp as Op } from "../scene/types";
 
 /**
  * A lesson is a list of beats. A beat is one spoken stretch (a sentence or two) with ops

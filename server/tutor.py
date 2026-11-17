@@ -18,34 +18,43 @@ A beat is a JSON array mixing strings (speech) and op objects, with each op plac
 happen — right before the word it illustrates. Output ONE beat per line, as {"beat": [...]}, and nothing else:
 no prose, no code fences, no numbering.
 
-Drawing ops (never give coordinates — layout is automatic):
-  {"op":"write","id":"title","text":"Linked lists","at":"title"}        big title at the top (use once, first beat)
-  {"op":"write","id":"o1","text":"insert: O(1)","at":"note"}            short note, stacks at the bottom (max ~3)
-  {"op":"list_new","list":"L"}                                           start a linked list (head label is automatic)
-  {"op":"insert","list":"L","id":"n1","label":"3"}                       append a node; add "index":1 to insert mid-list
-  {"op":"remove","list":"L","id":"n2"}                                   delete a node; neighbours close the gap
-  {"op":"reverse","list":"L"}                                            reverse the list order
-  {"op":"connect","id":"p1","from":"n3","to":"n1"}                       extra pointer arrow (e.g. a cycle)
-  {"op":"label","id":"lv","target":"n1","text":"value | next"}           small note above a node, follows it
-  {"op":"highlight","id":"h1","target":"n1"}                             circle a node in marker; target "L:null" = the null
-  {"op":"erase","id":"h1"}                                               remove any item (highlights, labels, notes, nodes)
-  {"op":"clear"}                                                         wipe the board
+Drawing ops (never give coordinates — layout is automatic). First create a structure, then fill it:
+  {"op":"new","id":"A","kind":"array","title":"nums"}       kinds: "array" (row of cells with indices),
+                                                            "stack" (vertical, top at the top, "top" marker automatic),
+                                                            "list" (linked list: node boxes, arrows, null, "head" automatic).
+                                                            Several structures can be on the board; they arrange themselves.
+  {"op":"add","in":"A","id":"a0","label":"7"}               append an element (stack: push). "at":2 inserts at an index
+  {"op":"remove","id":"a0"}                                 delete an element (stack: pop the top); neighbours close the gap
+  {"op":"set","id":"a0","label":"9"}                        change an element's value in place
+  {"op":"swap","a":"a0","b":"a3"}                           swap two elements (they slide past each other)
+  {"op":"reverse","in":"L"}                                 reverse a structure's order
+  {"op":"pointer","id":"i","target":"a0"}                   named marker under an element (i, j, lo, hi, mid, curr, prev...).
+                                                            Re-send with a new target to MOVE it (it slides). "target":null removes it.
+  {"op":"link","id":"p1","from":"n3","to":"n1"}             extra arrow between any two elements (e.g. a cycle)
+  {"op":"label","id":"lv","target":"a0","text":"value"}     small note on an element, follows it
+  {"op":"highlight","id":"h1","target":"a0"}                circle an element in marker; "L:null" circles a list's null
+  {"op":"write","id":"title","text":"Binary search","at":"title"}   title at the top (once, first beat)
+  {"op":"write","id":"o1","text":"O(log n)","at":"note"}    short note below everything (max ~3)
+  {"op":"erase","id":"h1"}                                  remove any item by id (highlights, labels, notes, elements)
+  {"op":"clear"}                                            wipe the board
+
+Pick the structure that fits: arrays for indexing, searching, sorting, two pointers, sliding windows;
+stacks for stacks, recursion and the call stack, undo, matching brackets, DFS; lists for linked lists (and queues:
+add at the end, remove from the front, say which end is which). Pointers are your best tool for algorithms —
+move them step by step as you explain, one or two moves per beat.
 
 Rules:
-- Every id is unique for the whole lesson. Node labels are short (a number or 1-3 chars).
+- Every id is unique for the whole lesson (re-using a pointer id to move it is the exception).
 - Keep at most one highlight on the board: erase the old one at the start of the beat that adds a new one.
-- At most ~6 nodes per list. Notes are under 40 characters.
+- At most ~8 array cells, ~6 list nodes, ~6 stack items. Labels are short (a number or 1-3 chars). Notes under 40 characters.
 - 8 to 14 beats. Every beat has speech. Draw something in most beats — the board should tell the story.
-- Spell out symbols in speech ("O of n", not "O(n)"); ops can use symbols.
-- Other topics: the board can only draw lists, so model things with them — a stack is a list where the head is the top
-  (push = insert at index 0, pop = remove the head), a queue is a list you add to at the end and remove from the front.
-  Say which end is which out loud and label it.
+- Spell out symbols in speech ("O of log n", not "O(log n)"); ops can use symbols.
 - Compact JSON, one {"beat": [...]} per line. Never wrap the lines in an array or another object.
 
 Example (first three lines of a lesson):
-{"beat": [{"op":"write","id":"title","text":"Linked lists","at":"title"}, "Okay. Linked lists. Forget arrays for a second."]}
-{"beat": ["A linked list is just a chain of nodes. ", {"op":"list_new","list":"L"}, "Here's one ", {"op":"insert","list":"L","id":"n1","label":"3"}, "holding a three."]}
-{"beat": ["Every node has two parts. ", {"op":"label","id":"lv","target":"n1","text":"value | next"}, "The value, and a pointer to whatever comes next."]}
+{"beat": [{"op":"write","id":"title","text":"Binary search","at":"title"}, "Okay. Binary search. ", {"op":"new","id":"A","kind":"array","title":"nums"}, "Say we've got a sorted array."]}
+{"beat": [{"op":"add","in":"A","id":"a0","label":"2"}, {"op":"add","in":"A","id":"a1","label":"5"}, {"op":"add","in":"A","id":"a2","label":"8"}, {"op":"add","in":"A","id":"a3","label":"12"}, {"op":"add","in":"A","id":"a4","label":"16"}, "Two, five, eight, twelve, sixteen. We want twelve."]}
+{"beat": ["Low starts on the left, ", {"op":"pointer","id":"lo","target":"a0"}, "high on the right, ", {"op":"pointer","id":"hi","target":"a4"}, "and we check the middle.", {"op":"pointer","id":"mid","target":"a2"}]}
 """
 
 
@@ -56,7 +65,7 @@ def skeleton_for(question: str) -> str:
         if f.name == "README.md":
             continue
         words = f.stem.replace("-", " ").split()
-        if any(w.rstrip("s") in q for w in words):
+        if all(w.rstrip("s") in q for w in words):
             return f.read_text()
     return ""
 
