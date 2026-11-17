@@ -30,3 +30,8 @@ button:disabled { opacity: .45; cursor: default; }
   padding: 10px 18px; border-radius: 10px; background: rgba(30, 42, 68, .88); color: #c9cfdc; font-size: 17px; line-height: 1.45; text-align: center; }
 .caption .spoken { color: #fff; }
 .beat { font-size: 13px; color: #6b6556; font-variant-numeric: tabular-nums; }
+header { gap: 16px; }
+.ask { flex: 1; display: flex; gap: 8px; max-width: 560px; }
+.ask input { flex: 1; padding: 8px 12px; border: 1.5px solid #cfc6b3; border-radius: 8px; background: var(--paper); color: var(--ink); font-size: 15px; }
+.ask input:focus { outline: none; border-color: var(--ink); }
+.error { margin: 0 20px 10px; padding: 8px 12px; border-radius: 8px; background: #f3d6d2; color: #7a2a20; font-size: 14px; }
