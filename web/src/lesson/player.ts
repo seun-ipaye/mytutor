@@ -66,6 +66,10 @@ export class LessonPlayer {
     }
   }
 
+  get state(): Status {
+    return this.status;
+  }
+
   play() {
     if (this.status === "playing" || this.status === "waiting") return;
     if (this.status === "done") return this.restart();

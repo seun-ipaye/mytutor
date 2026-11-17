@@ -35,3 +35,9 @@ header { gap: 16px; }
 .ask input { flex: 1; padding: 8px 12px; border: 1.5px solid #cfc6b3; border-radius: 8px; background: var(--paper); color: var(--ink); font-size: 15px; }
 .ask input:focus { outline: none; border-color: var(--ink); }
 .error { margin: 0 20px 10px; padding: 8px 12px; border-radius: 8px; background: #f3d6d2; color: #7a2a20; font-size: 14px; }
+.mic { white-space: nowrap; touch-action: none; user-select: none; }
+.mic.on { background: #c8432b; border-color: #c8432b; color: #fff; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 6px rgba(200, 67, 43, .2); } }
+.heard { position: absolute; top: 18px; right: 38px; max-width: 420px; padding: 10px 14px; border-radius: 12px 12px 2px 12px;
+  background: #fff; border: 1.5px solid var(--ink); font-size: 16px; line-height: 1.4; }
+.heard span { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #8a8478; margin-bottom: 2px; }

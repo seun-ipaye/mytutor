@@ -58,6 +58,8 @@ async def session(ws: WebSocket):
             await ws.send_json({"type": "error", "message": str(e)})
         finally:
             print(f"[tutor] streamed {n} beats for: {question!r}", flush=True)
+            if n == 0:
+                await ws.send_json({"type": "error", "message": "The model replied but no beats could be read — see server/.cache/last_lesson.txt"})
             await ws.send_json({"type": "done", "beats": n})
 
     try:

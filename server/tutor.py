@@ -37,6 +37,10 @@ Rules:
 - At most ~6 nodes per list. Notes are under 40 characters.
 - 8 to 14 beats. Every beat has speech. Draw something in most beats — the board should tell the story.
 - Spell out symbols in speech ("O of n", not "O(n)"); ops can use symbols.
+- Other topics: the board can only draw lists, so model things with them — a stack is a list where the head is the top
+  (push = insert at index 0, pop = remove the head), a queue is a list you add to at the end and remove from the front.
+  Say which end is which out loud and label it.
+- Compact JSON, one {"beat": [...]} per line. Never wrap the lines in an array or another object.
 
 Example (first three lines of a lesson):
 {"beat": [{"op":"write","id":"title","text":"Linked lists","at":"title"}, "Okay. Linked lists. Forget arrays for a second."]}
@@ -57,37 +61,88 @@ def skeleton_for(question: str) -> str:
     return ""
 
 
+RAW_LOG = Path(__file__).parent / ".cache" / "last_lesson.txt"
+
+
 async def lesson(question: str) -> AsyncIterator[list]:
-    """Yields cleaned beats as soon as each line arrives."""
+    """Yields cleaned beats as soon as each complete JSON object arrives (any formatting)."""
     skeleton = skeleton_for(question)
     user = f"Student asks: {question}"
     if skeleton:
         user += f"\n\nTeaching notes for this topic (follow the beats, pre-empt one misconception):\n{skeleton}"
     messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}]
 
-    buf = ""
-    async for delta in stream_chat(messages):
-        buf += delta
-        while "\n" in buf:
-            line, buf = buf.split("\n", 1)
-            beat = parse_line(line)
-            if beat:
-                yield beat
-    beat = parse_line(buf)
-    if beat:
-        yield beat
+    scanner = ObjectScanner()
+    raw = ""
+    try:
+        async for delta in stream_chat(messages):
+            raw += delta
+            for obj in scanner.feed(delta):
+                for beat in beats_in(obj):
+                    yield beat
+    finally:
+        RAW_LOG.parent.mkdir(parents=True, exist_ok=True)
+        RAW_LOG.write_text(raw)
+        print(f"[tutor] model sent {len(raw)} chars (raw saved to .cache/last_lesson.txt)", flush=True)
+
+
+class ObjectScanner:
+    """Pulls complete top-level {...} objects out of a stream, ignoring newlines, fences, commas, array brackets and prose."""
+
+    def __init__(self):
+        self.buf = ""
+        self.depth = 0
+        self.in_str = False
+        self.esc = False
+
+    def feed(self, chunk: str) -> list:
+        out = []
+        for ch in chunk:
+            if self.depth == 0:
+                if ch == "{":
+                    self.buf, self.depth = "{", 1
+                continue
+            self.buf += ch
+            if self.in_str:
+                if self.esc:
+                    self.esc = False
+                elif ch == "\\":
+                    self.esc = True
+                elif ch == '"':
+                    self.in_str = False
+                continue
+            if ch == '"':
+                self.in_str = True
+            elif ch in "{[":
+                self.depth += 1
+            elif ch in "}]":
+                self.depth -= 1
+                if self.depth == 0:
+                    try:
+                        out.append(json.loads(self.buf))
+                    except json.JSONDecodeError:
+                        print(f"[tutor] unparseable object: {self.buf[:120]}", flush=True)
+        return out
+
+
+def beats_in(obj) -> list:
+    """Accepts {"beat": [...]} or {"beats": [[...], ...]} or {"beats": [{"beat": [...]}, ...]}."""
+    if not isinstance(obj, dict):
+        return []
+    if "beat" in obj:
+        b = clean_beat(obj["beat"])
+        return [b] if b else []
+    out = []
+    for item in obj.get("beats") or []:
+        raw = item.get("beat") if isinstance(item, dict) else item
+        b = clean_beat(raw)
+        if b:
+            out.append(b)
+    return out
 
 
 def parse_line(line: str) -> list | None:
-    line = line.strip().strip(",")
-    if not line or line.startswith("```"):
-        return None
-    m = re.search(r"\{.*\}", line)
-    if not m:
-        return None
-    try:
-        obj = json.loads(m.group(0))
-    except json.JSONDecodeError:
-        print(f"[tutor] unparseable line: {line[:120]}", flush=True)
-        return None
-    return clean_beat(obj.get("beat") if isinstance(obj, dict) else None)
+    """Single-line helper (kept for quick tests)."""
+    objs = ObjectScanner().feed(line)
+    beats = [b for o in objs for b in beats_in(o)]
+    return beats[0] if beats else None
