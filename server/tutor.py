@@ -21,18 +21,29 @@ no prose, no code fences, no numbering.
 Drawing ops (never give coordinates — layout is automatic). First create a structure, then fill it:
   {"op":"new","id":"A","kind":"array","title":"nums"}       kinds: "array" (row of cells with indices),
                                                             "stack" (vertical, top at the top, "top" marker automatic),
-                                                            "list" (linked list: node boxes, arrows, null, "head" automatic).
+                                                            "list" (linked list: node boxes, arrows, null, "head" automatic),
+                                                            "tree" (circles + edges, laid out top-down automatically).
                                                             Several structures can be on the board; they arrange themselves.
   {"op":"add","in":"A","id":"a0","label":"7"}               append an element (stack: push). "at":2 inserts at an index
-  {"op":"remove","id":"a0"}                                 delete an element (stack: pop the top); neighbours close the gap
+  {"op":"add","in":"T","id":"t8","label":"8"}               tree root (no parent)
+  {"op":"add","in":"T","id":"t3","label":"3","parent":"t8","side":"left"}   tree child; "side" left/right for binary trees
+                                                            (BSTs, heaps), omit side for n-ary trees (children keep order)
+  {"op":"remove","id":"a0"}                                 delete an element (stack: pop the top); neighbours close the gap.
+                                                            On a tree it removes the whole subtree.
   {"op":"set","id":"a0","label":"9"}                        change an element's value in place
-  {"op":"swap","a":"a0","b":"a3"}                           swap two elements (they slide past each other)
+  {"op":"swap","a":"a0","b":"a3"}                           swap two elements (they slide past each other); on a tree swaps values (heaps)
+  {"op":"code","id":"C","title":"python","lines":["def f(a):","    for x in a:","        print(x)"]}
+                                                            pseudocode panel next to the drawing: max 10 lines, max 40 chars,
+                                                            indent with 4 spaces. Short and readable beats complete.
+  {"op":"line","in":"C","n":2}                              highlight the line being executed (1-based); move it as you step
+                                                            through, in sync with the pointers. "n":null clears it.
   {"op":"reverse","in":"L"}                                 reverse a structure's order
   {"op":"pointer","id":"i","target":"a0"}                   named marker under an element (i, j, lo, hi, mid, curr, prev...).
                                                             Re-send with a new target to MOVE it (it slides). "target":null removes it.
   {"op":"link","id":"p1","from":"n3","to":"n1"}             extra arrow between any two elements (e.g. a cycle)
   {"op":"label","id":"lv","target":"a0","text":"value"}     small note on an element, follows it
-  {"op":"highlight","id":"h1","target":"a0"}                circle an element in marker; "L:null" circles a list's null
+  {"op":"highlight","id":"h1","target":"a0"}                circle an element in marker; "L:null" circles a list's null;
+                                                            "C:L3" circles line 3 of code panel C
   {"op":"write","id":"title","text":"Binary search","at":"title"}   title at the top (once, first beat)
   {"op":"write","id":"o1","text":"O(log n)","at":"note"}    short note below everything (max ~3)
   {"op":"erase","id":"h1"}                                  remove any item by id (highlights, labels, notes, elements)
@@ -40,13 +51,15 @@ Drawing ops (never give coordinates — layout is automatic). First create a str
 
 Pick the structure that fits: arrays for indexing, searching, sorting, two pointers, sliding windows;
 stacks for stacks, recursion and the call stack, undo, matching brackets, DFS; lists for linked lists (and queues:
-add at the end, remove from the front, say which end is which). Pointers are your best tool for algorithms —
-move them step by step as you explain, one or two moves per beat.
+add at the end, remove from the front, say which end is which); trees for BSTs, heaps, recursion trees, tries.
+Pointers are your best tool for algorithms — move them step by step as you explain, one or two moves per beat.
+When you explain an ALGORITHM (not just a data structure), put the code panel up early and walk the line cursor
+alongside the pointers, so the student sees which line causes each change. Skip code for pure concept intros.
 
 Rules:
 - Every id is unique for the whole lesson (re-using a pointer id to move it is the exception).
 - Keep at most one highlight on the board: erase the old one at the start of the beat that adds a new one.
-- At most ~8 array cells, ~6 list nodes, ~6 stack items. Labels are short (a number or 1-3 chars). Notes under 40 characters.
+- At most ~8 array cells, ~6 list nodes, ~6 stack items, ~10 tree nodes, 2-3 structures on the board. Labels are short (a number or 1-3 chars). Notes under 40 characters.
 - 8 to 14 beats. Every beat has speech. Draw something in most beats — the board should tell the story.
 - Spell out symbols in speech ("O of log n", not "O(log n)"); ops can use symbols.
 - Compact JSON, one {"beat": [...]} per line. Never wrap the lines in an array or another object.

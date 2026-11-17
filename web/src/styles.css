@@ -4,6 +4,7 @@
   --ink: #1e2a44;
   --marker: rgba(232, 160, 40, 0.75);
   --pointer: #b8432b;
+  --marker-soft: rgba(232, 160, 40, 0.22);
 }
 * { box-sizing: border-box; margin: 0; }
 html, body, #root { height: 100%; }
@@ -43,3 +44,4 @@ header { gap: 16px; }
   background: #fff; border: 1.5px solid var(--ink); font-size: 16px; line-height: 1.4; }
 .heard span { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #8a8478; margin-bottom: 2px; }
 .hand.muted { fill: #8a8478; }
+.hand.code { font-family: "Patrick Hand", "Caveat", cursive; font-weight: 400; }

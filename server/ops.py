@@ -9,9 +9,15 @@ class _Op(BaseModel):
 
 
 class New(_Op):
-    op: Literal["new"]; id: str; kind: Literal["list", "array", "stack"]; title: Optional[str] = None
+    op: Literal["new"]; id: str; kind: Literal["list", "array", "stack", "tree"]; title: Optional[str] = None
 class Add(_Op):
     op: Literal["add"]; id: str; label: str; at: Optional[int] = None
+    parent: Optional[str] = None; side: Optional[Literal["left", "right"]] = None
+    in_: str = Field(alias="in")
+class Code(_Op):
+    op: Literal["code"]; id: str; lines: list[str]; title: Optional[str] = None
+class Line(_Op):
+    op: Literal["line"]; n: Optional[int] = None
     in_: str = Field(alias="in")
 class Remove(_Op):
     op: Literal["remove"]; id: str; list: Optional[str] = None
@@ -47,7 +53,7 @@ class Insert(_Op):
 
 
 Op = Annotated[
-    Union[New, Add, Remove, Set, Swap, Reverse, Pointer, Link, Label, Highlight, Write, Erase, Clear, ListNew, Insert],
+    Union[New, Add, Code, Line, Remove, Set, Swap, Reverse, Pointer, Link, Label, Highlight, Write, Erase, Clear, ListNew, Insert],
     Field(discriminator="op"),
 ]
 _op = TypeAdapter(Op)
@@ -68,6 +74,10 @@ def clean_beat(raw) -> list | None:
             dumped = _op.validate_python(part).model_dump(by_alias=True, exclude_none=True)
             if dumped["op"] == "pointer" and "target" not in dumped:
                 dumped["target"] = None  # explicit null = remove the marker
+            if dumped["op"] == "line" and "n" not in dumped:
+                dumped["n"] = None  # clear the cursor
+            if dumped["op"] == "code":
+                dumped["lines"] = [l[:48] for l in dumped["lines"][:12]]
             out.append(dumped)
         except ValidationError as e:
             print(f"[tutor] dropped op {part}: {e.errors()[0]['msg']}", flush=True)

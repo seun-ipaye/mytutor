@@ -5,7 +5,7 @@ import type { Scene } from "./scene/types";
 import { LessonPlayer, type Playhead } from "./lesson/player";
 import type { Beat } from "./lesson/types";
 import { linkedListLesson } from "./lesson/linkedLists";
-import { kitsDemo } from "./lesson/kitsDemo";
+import { kitsDemo, treeDemo } from "./lesson/kitsDemo";
 import { Caption } from "./lesson/Caption";
 import { useSession } from "./useSession";
 import { setEngineListener, unlockAudio, type Engine } from "./voice";
@@ -133,6 +133,7 @@ export default function App() {
           <button onClick={() => p?.restart()} disabled={!head.total}>Restart</button>
           <button onClick={() => scripted()} title="Hand-written lesson — demo fallback">Scripted</button>
           <button onClick={() => scripted(kitsDemo)} title="Array + pointers + stack, no model calls">Kits demo</button>
+          <button onClick={() => scripted(treeDemo)} title="Tree + code panel, no model calls">Tree demo</button>
           <span className="beat">{head.total ? `beat ${Math.min(head.beat + 1, head.total)}/${head.total}` : ""}</span>
           {engine && <span className={`status ${engine === "elevenlabs" ? "open" : ""}`}>{engine}</span>}
           <span className={`status ${status}`}>{status}</span>

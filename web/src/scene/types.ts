@@ -7,11 +7,13 @@ export type Point = { x: number; y: number };
 export type Box = { x: number; y: number; w: number; h: number };
 
 /** Structure kits. Each has its own layout + look; all share the same ops. */
-export type Kind = "list" | "array" | "stack";
+export type Kind = "list" | "array" | "stack" | "tree" | "code";
 
 export type Op =
   | { op: "new"; id: string; kind: Kind; title?: string }
-  | { op: "add"; in: string; id: string; label: string; at?: number } // default: end (stack: push)
+  | { op: "add"; in: string; id: string; label: string; at?: number; parent?: string; side?: "left" | "right" } // default: end (stack: push); tree: parent/side
+  | { op: "code"; id: string; lines: string[]; title?: string } // pseudocode panel (creates or replaces)
+  | { op: "line"; in: string; n: number | null } // highlight the line being executed (1-based)
   | { op: "remove"; id: string; in?: string }
   | { op: "set"; id: string; label: string } // change an element's value
   | { op: "swap"; a: string; b: string; in?: string }
@@ -35,7 +37,7 @@ export type LegacyOp =
 export type AnyOp = Op | LegacyOp;
 
 interface Base { id: string; erasing?: boolean; ghost?: Box } // ghost: frozen box while fading out
-export type ElemItem = Base & { kind: "elem"; label: string; struct: string; bornAt: number };
+export type ElemItem = Base & { kind: "elem"; label: string; struct: string; bornAt: number; parent?: string; side?: "left" | "right" };
 export type ArrowItem = Base & { kind: "arrow"; from: string; to: string };
 export type LabelItem = Base & { kind: "label"; target: string; text: string };
 export type HighlightItem = Base & { kind: "highlight"; target: string };
@@ -43,7 +45,7 @@ export type PointerItem = Base & { kind: "pointer"; target: string; name: string
 export type TextItem = Base & { kind: "text"; text: string; at: "title" | "note" };
 export type Item = ElemItem | ArrowItem | LabelItem | HighlightItem | PointerItem | TextItem;
 
-export interface Struct { id: string; kind: Kind; title?: string; elems: string[] }
+export interface Struct { id: string; kind: Kind; title?: string; elems: string[]; lines?: string[]; cursor?: number }
 
 export interface Scene {
   items: Item[]; // draw order

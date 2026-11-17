@@ -40,8 +40,8 @@ export function box(x: number, y: number, w: number, h: number, rand: () => numb
 }
 
 /** Loose ellipse that goes a bit more than once around — a "circling" gesture. */
-export function loop(cx: number, cy: number, rx: number, ry: number, rand: () => number): Point[] {
-  const start = rand() * Math.PI * 2, turns = 1.12, n = 48;
+export function loop(cx: number, cy: number, rx: number, ry: number, rand: () => number, turns = 1.12): Point[] {
+  const start = rand() * Math.PI * 2, n = 48;
   const pts: Point[] = [];
   for (let i = 0; i <= n; i++) {
     const a = start + (i / n) * turns * Math.PI * 2;

@@ -41,15 +41,29 @@ export function apply(prev: Scene, raw: AnyOp): Scene {
         elems.splice(clamp(op.at ?? elems.length, 0, elems.length), 0, op.id);
         return { ...s, elems };
       });
-      return { structs, items: upsert(scene.items, { kind: "elem", id: op.id, label: String(op.label), struct: s.id, bornAt: performance.now() }) };
+      const tree = s.kind === "tree" ? { parent: op.parent, side: op.side } : {};
+      return { structs, items: upsert(scene.items, { kind: "elem", id: op.id, label: String(op.label), struct: s.id, bornAt: performance.now(), ...tree }) };
     }
+
+    case "code": {
+      const panel: Struct = { id: op.id, kind: "code", title: op.title, elems: [], lines: op.lines.map(String) };
+      const exists = scene.structs.some((s) => s.id === op.id);
+      return { ...scene, structs: exists ? editStruct(op.id, () => panel) : [...scene.structs, panel] };
+    }
+
+    case "line":
+      return { ...scene, structs: editStruct(op.in, (s) => ({ ...s, cursor: op.n ?? undefined })) };
 
     case "remove":
     case "erase": {
       const { boxes } = layout(scene);
       const s = owner(op.id);
-      const structs = s ? editStruct(s.id, (s) => ({ ...s, elems: s.elems.filter((e) => e !== op.id) })) : scene.structs;
-      return { structs, items: eraseCascade(scene.items, op.id, boxes.get(op.id)) };
+      // removing a tree node takes its whole subtree with it
+      const gone = s?.kind === "tree" ? subtree(scene.items, op.id) : [op.id];
+      const structs = s ? editStruct(s.id, (s) => ({ ...s, elems: s.elems.filter((e) => !gone.includes(e)) })) : scene.structs;
+      let items = scene.items;
+      for (const id of gone) items = eraseCascade(items, id, boxes.get(id));
+      return { structs, items };
     }
 
     case "set":
@@ -58,6 +72,12 @@ export function apply(prev: Scene, raw: AnyOp): Scene {
     case "swap": {
       const s = op.in ? scene.structs.find((s) => s.id === op.in) : owner(op.a);
       if (!s) return scene;
+      if (s.kind === "tree") {
+        // trees: swap the values (heap sift-up/down), the shape stays
+        const la = labelOf(scene.items, op.a), lb = labelOf(scene.items, op.b);
+        if (la === undefined || lb === undefined) return scene;
+        return { ...scene, items: scene.items.map((it) => (it.kind !== "elem" ? it : it.id === op.a ? { ...it, label: lb } : it.id === op.b ? { ...it, label: la } : it)) };
+      }
       return {
         ...scene,
         structs: editStruct(s.id, (s) => {
@@ -87,6 +107,18 @@ export function apply(prev: Scene, raw: AnyOp): Scene {
   }
 }
 
+const labelOf = (items: Item[], id: string) => {
+  const it = items.find((i) => i.id === id);
+  return it?.kind === "elem" ? it.label : undefined;
+};
+
+function subtree(items: Item[], root: string): string[] {
+  const out = [root];
+  for (let i = 0; i < out.length; i++)
+    for (const it of items) if (it.kind === "elem" && it.parent === out[i] && !out.includes(it.id)) out.push(it.id);
+  return out;
+}
+
 /** Fade out an item plus anything attached to it (labels, highlights, pointers, arrows). */
 function eraseCascade(items: Item[], id: string, ghost?: Box): Item[] {
   return items.map((it) => {
@@ -114,6 +146,8 @@ export function drawDuration(raw: AnyOp): number {
   if (!op) return 0;
   switch (op.op) {
     case "new": return 450;
+    case "code": return 300 + op.lines.length * 140;
+    case "line": return 400;
     case "add": return 950;
     case "remove": return 900;
     case "set": return 650;

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ELEM, stackWalls, TOP_PAD } from "../scene/kits";
+import { CODE, ELEM, stackWalls, TOP_PAD } from "../scene/kits";
 import { layout } from "../scene/layout";
 import { ELEM_DRAW_MS, SLIDE_MS, type Box, type ElemItem, type Item, type Kind, type Point, type Scene, type Struct } from "../scene/types";
 import { arrow, box, line, loop, rng } from "./sketch";
@@ -33,7 +33,7 @@ export function Board({ scene }: { scene: Scene }) {
       </defs>
       <rect width={L.size.w} height={L.size.h} fill="url(#grid)" />
 
-      {scene.structs.map((s) => <StructFrame key={s.id} s={s} at={L.structs.get(s.id)!} boxes={L.boxes} settle={settle} />)}
+      {scene.structs.map((s) => <StructFrame key={s.id} s={s} at={L.structs.get(s.id)!} boxes={L.boxes} settle={settle} elems={byId} />)}
 
       {scene.items.map((it) => {
         const cls = it.erasing ? "erasing" : undefined;
@@ -89,11 +89,53 @@ export function Board({ scene }: { scene: Scene }) {
 const kindOfStruct = (scene: Scene, it: ElemItem): Kind => scene.structs.find((s) => s.id === it.struct)?.kind ?? "list";
 
 /** Structure-level drawing: titles, list arrows/null/head, array indices, stack walls/top. */
-function StructFrame({ s, at, boxes, settle }: {
-  s: Struct; at: Box; boxes: Map<string, Box>; settle: (...ids: string[]) => number;
+function StructFrame({ s, at, boxes, settle, elems }: {
+  s: Struct; at: Box; boxes: Map<string, Box>; settle: (...ids: string[]) => number; elems: Map<string, Item>;
 }) {
   const n = s.elems.length;
   const title = s.title && <Handwriting x={at.x} y={at.y + 16} text={s.title} size={28} anchor="start" muted />;
+
+  if (s.kind === "tree") {
+    // parent -> child edges, redrawn whenever either end moves
+    return (
+      <g>
+        {title}
+        {s.elems.map((id) => {
+          const it = elems.get(id), p = it?.kind === "elem" ? it.parent : undefined;
+          const a = p ? boxes.get(p) : undefined, c = boxes.get(id);
+          if (!a || !c) return null;
+          const key = `${p}>${id}@${Math.round(a.x)},${Math.round(c.x)},${Math.round(c.y)}`;
+          const from = towards(a, center(c), a.w / 2 + 2), to = towards(c, center(a), c.w / 2 + 2);
+          return <g key={key}><Stroke points={line(from, to, rng(key), 1)} delay={settle(id)} duration={300} size={3} /></g>;
+        })}
+      </g>
+    );
+  }
+
+  if (s.kind === "code") {
+    const lines = s.lines ?? [], cur = s.cursor;
+    return (
+      <g>
+        {title}
+        <g key={`rule:${lines.length}`}>
+          <Stroke points={line({ x: at.x - 4, y: at.y + TOP_PAD - 4 }, { x: at.x - 4, y: at.y + TOP_PAD + lines.length * CODE.lineH }, rng(`${s.id}:rule`), 0.8)} duration={300} size={2} color="var(--pointer)" />
+        </g>
+        {cur !== undefined && cur >= 1 && cur <= lines.length && (
+          <g className="placed" style={{ transform: `translate(${at.x}px, ${at.y + TOP_PAD + (cur - 1) * CODE.lineH}px)` }}>
+            <rect x={-2} y={2} width={at.w} height={CODE.lineH - 4} rx={6} fill="var(--marker-soft)" />
+            <text x={-22} y={CODE.lineH / 2} className="hand" fontSize={24} dominantBaseline="central" style={{ fill: "var(--pointer)" }}>▸</text>
+          </g>
+        )}
+        {lines.map((ln, i) => {
+          const indent = ln.length - ln.trimStart().length;
+          return (
+            <Handwriting key={`${i}:${ln}`} x={at.x + CODE.pad + indent * CODE.charW} y={at.y + TOP_PAD + i * CODE.lineH + CODE.lineH / 2}
+              text={ln.trimStart()} size={24} anchor="start" delay={i * 140} className="code" />
+          );
+        })}
+      </g>
+    );
+  }
 
   if (s.kind === "list") {
     const nullId = `${s.id}:null`, chain = [...s.elems, nullId];
@@ -154,6 +196,14 @@ function Placed({ at, children, className }: { at: Point; children: React.ReactN
 
 function ElemView({ item, kind }: { item: ElemItem; kind: Kind }) {
   const rand = rng(item.id), { w, h } = ELEM[kind];
+  if (kind === "tree") {
+    return (
+      <g>
+        <Stroke points={loop(w / 2, h / 2, w / 2, h / 2, rand, 1.04)} duration={450} />
+        <Handwriting key={item.label} x={w / 2} y={h / 2 + 1} text={item.label} size={30} delay={400} />
+      </g>
+    );
+  }
   if (kind === "list") {
     const sx = w * 0.62;
     return (
@@ -211,6 +261,11 @@ function Arrow({ seed, from, to, delay }: { seed: string; from: Point; to: Point
 }
 
 const center = (b: Box): Point => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
+/** Point at distance r from a box's centre towards p (circle edge for tree nodes). */
+function towards(b: Box, p: Point, r: number): Point {
+  const c = center(b), dx = p.x - c.x, dy = p.y - c.y, d = Math.hypot(dx, dy) || 1;
+  return { x: c.x + (dx / d) * r, y: c.y + (dy / d) * r };
+}
 /** Where the line from a box's center toward `p` leaves the box (plus a small gap). */
 function edgePoint(b: Box, p: Point): Point {
   const c = center(b), dx = p.x - c.x, dy = p.y - c.y;
@@ -218,11 +273,11 @@ function edgePoint(b: Box, p: Point): Point {
   return { x: c.x + dx * s, y: c.y + dy * s };
 }
 
-function Handwriting({ x, y, text, size, delay = 0, anchor = "middle", muted, color }: {
-  x: number; y: number; text: string; size: number; delay?: number; anchor?: "start" | "middle"; muted?: boolean; color?: string;
+function Handwriting({ x, y, text, size, delay = 0, anchor = "middle", muted, color, className = "" }: {
+  x: number; y: number; text: string; size: number; delay?: number; anchor?: "start" | "middle"; muted?: boolean; color?: string; className?: string;
 }) {
   return (
-    <text x={x} y={y} fontSize={size} textAnchor={anchor} dominantBaseline="central" className={`hand write-in ${muted ? "muted" : ""}`}
+    <text x={x} y={y} fontSize={size} textAnchor={anchor} dominantBaseline="central" className={`hand write-in ${muted ? "muted" : ""} ${className}`}
       style={{ animationDelay: `${delay}ms`, animationDuration: `${200 + text.length * 45}ms`, ...(color ? { fill: color } : {}) }}>
       {text}
     </text>
